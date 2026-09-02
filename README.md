@@ -25,7 +25,7 @@ var checkout = Workflow.Define<Cart>("Checkout")
     .Step("ShipOrder", charge => _shipping.ShipAsync(charge))
     .Build();
 
-var store = new InMemoryWorkflowStore();
+var store = new FileWorkflowStore("./workflow-checkpoints"); // one JSON file per instance, atomic writes
 var engine = new WorkflowEngine(store);
 
 var instance = await engine.StartAsync(checkout, cart);
@@ -52,12 +52,13 @@ await engine.ResumeAsync(checkout, instance.Value);
 | Retry & timeout | `.Step(name, fn, new WorkflowStepOptions { ... })` | Timeout bounds the *caller's* wait (`Task.WaitAsync`), so it works even if the step ignores `CancellationToken` |
 | Saga compensation | `.Compensate(fn)` | Attaches to the step just added; runs in reverse order on a later failure |
 | Durable checkpoints | `WorkflowEngine(IWorkflowStore?)`, `ResumeAsync` | Checkpoints after every step; resume continues from the last one |
+| Persistence | `FileWorkflowStore`, `InMemoryWorkflowStore` | File store: one JSON file per instance, temp-file-then-rename so a crash mid-write can't corrupt it — genuinely survives a process restart, not just an engine object being recreated |
 
 ## Not there yet
 
-- A store that survives a real process crash — `InMemoryWorkflowStore` only proves the mechanism; a disk/database-backed store needs to serialize `WorkflowCheckpoint.CurrentValue`, which isn't solved here
 - Compensating steps that completed *before* the last checkpoint, if a step after a resume fails (only steps completed during the resumed run are compensated — see the XML docs on `ResumeAsync`)
 - Scheduling workflows to start in the future, and EventFlow-driven transitions
+- `FileWorkflowStore` resolves `CurrentValue`'s type via `Type.GetType(AssemblyQualifiedName)` — fine within one process/deployment, but a checkpoint written by one version of your types and read by an incompatible one will fail to deserialize
 
 ## Requirements
 
