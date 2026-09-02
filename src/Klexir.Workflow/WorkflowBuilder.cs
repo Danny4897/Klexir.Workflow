@@ -43,5 +43,35 @@ public sealed class WorkflowBuilder<TRequest, TCurrent>
         return new WorkflowBuilder<TRequest, TNext>(_name, [.. _steps, new ErasedStep<TCurrent, TNext>(step)]);
     }
 
+    /// <summary>Runs every branch concurrently against the current value; the current value flows unchanged into the next step. See <see cref="ParallelStep{TIn}"/> for join/failure semantics.</summary>
+    public WorkflowBuilder<TRequest, TCurrent> Parallel(params (string Name, Func<TCurrent, Task<Result<Unit>>> Execute)[] branches)
+    {
+        ArgumentNullException.ThrowIfNull(branches);
+        if (branches.Length == 0)
+        {
+            throw new ArgumentException("At least one branch is required.", nameof(branches));
+        }
+
+        return new WorkflowBuilder<TRequest, TCurrent>(_name, [.. _steps, new ParallelStep<TCurrent>(branches)]);
+    }
+
+    /// <summary>Runs exactly one of <paramref name="whenTrue"/>/<paramref name="whenFalse"/>, chosen by <paramref name="predicate"/>.</summary>
+    public WorkflowBuilder<TRequest, TNext> Branch<TNext>(
+        Func<TCurrent, bool> predicate,
+        Func<TCurrent, Task<Result<TNext>>> whenTrue,
+        Func<TCurrent, Task<Result<TNext>>> whenFalse)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(whenTrue);
+        ArgumentNullException.ThrowIfNull(whenFalse);
+
+        var step = new BranchStep<TCurrent, TNext>(
+            predicate,
+            new DelegateStep<TCurrent, TNext>("Branch:True", whenTrue),
+            new DelegateStep<TCurrent, TNext>("Branch:False", whenFalse));
+
+        return new WorkflowBuilder<TRequest, TNext>(_name, [.. _steps, step]);
+    }
+
     public WorkflowDefinition<TRequest> Build() => new(_name, _steps);
 }

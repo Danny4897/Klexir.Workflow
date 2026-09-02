@@ -28,3 +28,48 @@ internal sealed class DelegateStep<TIn, TOut>(string name, Func<TIn, Task<Result
 
     public Task<Result<TOut>> ExecuteAsync(TIn input, CancellationToken cancellationToken) => execute(input);
 }
+
+/// <summary>
+/// Runs every branch concurrently against the same input. Join is deterministic by declaration order, not
+/// completion order: on multiple failures, the first branch (by declaration) wins. On success the input passes
+/// through unchanged — branches are side effects, not value producers.
+/// </summary>
+internal sealed class ParallelStep<TIn>(IReadOnlyList<(string Name, Func<TIn, Task<Result<Unit>>> Execute)> branches) : IErasedStep
+{
+    public string Name => "Parallel";
+
+    public async Task<Result<object>> ExecuteAsync(object input, CancellationToken cancellationToken)
+    {
+        var typedInput = (TIn)input;
+        var tasks = branches.Select(branch => branch.Execute(typedInput)).ToArray();
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        foreach (var task in tasks)
+        {
+            var result = await task.ConfigureAwait(false);
+            if (result.IsFailure)
+            {
+                return Result<object>.Failure(result.Error);
+            }
+        }
+
+        return Result<object>.Success(input);
+    }
+}
+
+/// <summary>Evaluates a predicate against the input and runs exactly one of two steps — never both.</summary>
+internal sealed class BranchStep<TIn, TOut>(
+    Func<TIn, bool> predicate,
+    IWorkflowStep<TIn, TOut> whenTrue,
+    IWorkflowStep<TIn, TOut> whenFalse) : IErasedStep
+{
+    public string Name => "Branch";
+
+    public async Task<Result<object>> ExecuteAsync(object input, CancellationToken cancellationToken)
+    {
+        var typedInput = (TIn)input;
+        var chosen = predicate(typedInput) ? whenTrue : whenFalse;
+        var result = await chosen.ExecuteAsync(typedInput, cancellationToken).ConfigureAwait(false);
+        return result.Map(value => (object)value!);
+    }
+}
