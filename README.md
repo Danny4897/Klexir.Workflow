@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/Danny4897/Klexir.Workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Danny4897/Klexir.Workflow/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple.svg)](https://dotnet.microsoft.com/)
+[![Docs](https://img.shields.io/badge/docs-vitepress-7c3aed.svg)](https://danny4897.github.io/Klexir.Workflow/)
 
 Durable workflow and saga orchestration for Klexir, built on [MonadicSharp](https://www.nuget.org/packages/MonadicSharp/) `Result<T>`. A fluent, type-checked step builder plus an engine that runs it, checkpoints it, and can resume it after a restart.
 
-> **Status: private research repo, not published to NuGet.** Reference the project directly until/unless it's published.
+> **Status: public research repo, not yet published to NuGet.** Reference the project directly until/unless it's published.
 
 ---
 
