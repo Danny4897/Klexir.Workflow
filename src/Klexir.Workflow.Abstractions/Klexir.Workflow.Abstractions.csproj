@@ -2,7 +2,14 @@
   <PropertyGroup>
     <AssemblyName>Klexir.Workflow.Abstractions</AssemblyName>
     <PackageId>Klexir.Workflow.Abstractions</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Danny4897</Authors>
     <Description>Public contracts for Klexir durable workflow steps and instance status.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Danny4897/Klexir.Workflow</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Danny4897/Klexir.Workflow</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>klexir;workflow;saga;durable-execution</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
