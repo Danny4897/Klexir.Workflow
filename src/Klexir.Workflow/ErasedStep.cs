@@ -30,6 +30,64 @@ internal sealed class DelegateStep<TIn, TOut>(string name, Func<TIn, Task<Result
 }
 
 /// <summary>
+/// Wraps a step with retry (fixed delay) and/or a timeout. Timeout bounds the caller's wait via
+/// <c>Task.WaitAsync</c> rather than requiring the step itself to observe cancellation, so it also times out a
+/// step whose delegate never checks the token.
+/// </summary>
+internal sealed class ResilientStep<TIn, TOut>(IWorkflowStep<TIn, TOut> inner, WorkflowStepOptions options) : IWorkflowStep<TIn, TOut>
+{
+    public string Name => inner.Name;
+
+    public async Task<Result<TOut>> ExecuteAsync(TIn input, CancellationToken cancellationToken)
+    {
+        var attempt = 0;
+        while (true)
+        {
+            attempt++;
+            var result = await InvokeWithTimeoutAsync(input, cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess || attempt >= options.MaxAttempts)
+            {
+                return result;
+            }
+
+            if (options.RetryDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(options.RetryDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<Result<TOut>> InvokeWithTimeoutAsync(TIn input, CancellationToken cancellationToken)
+    {
+        if (options.Timeout is not { } timeout)
+        {
+            return await inner.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+        }
+
+        try
+        {
+            return await inner.ExecuteAsync(input, cancellationToken).WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            return Result<TOut>.Failure(Error.Create($"Step '{inner.Name}' timed out after {timeout}."));
+        }
+    }
+}
+
+/// <summary>Type-erased saga compensation, paired by index with the step that produced the value it rolls back.</summary>
+internal interface IErasedCompensation
+{
+    Task CompensateAsync(object producedValue, CancellationToken cancellationToken);
+}
+
+internal sealed class Compensation<TValue>(Func<TValue, Task<Result<Unit>>> compensate) : IErasedCompensation
+{
+    public Task CompensateAsync(object producedValue, CancellationToken cancellationToken) =>
+        compensate((TValue)producedValue);
+}
+
+/// <summary>
 /// Runs every branch concurrently against the same input. Join is deterministic by declaration order, not
 /// completion order: on multiple failures, the first branch (by declaration) wins. On success the input passes
 /// through unchanged — branches are side effects, not value producers.

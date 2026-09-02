@@ -7,9 +7,13 @@ public sealed class WorkflowDefinition<TRequest>
 
     internal IReadOnlyList<IErasedStep> Steps { get; }
 
-    internal WorkflowDefinition(string name, IReadOnlyList<IErasedStep> steps)
+    /// <summary>Index-aligned with <see cref="Steps"/>; null where that step has no registered compensation.</summary>
+    internal IReadOnlyList<IErasedCompensation?> Compensations { get; }
+
+    internal WorkflowDefinition(string name, IReadOnlyList<IErasedStep> steps, IReadOnlyList<IErasedCompensation?> compensations)
     {
         Name = name;
         Steps = steps;
+        Compensations = compensations;
     }
 }

@@ -8,4 +8,6 @@ The first increment is a sequential builder and engine: `Workflow.Define<TReques
 
 `.Parallel(("Name", fn), ...)` runs every branch concurrently against the current value (branches are side effects — `Func<TCurrent, Task<Result<Unit>>>` — not value producers, so the current value flows unchanged into the next step); the join is deterministic by declaration order, not completion order, so with multiple failures the first-declared branch's error wins. `.Branch(predicate, whenTrue, whenFalse)` runs exactly one of two steps chosen by a predicate.
 
-Retry/timeout/compensation, durable checkpoints and resume-after-failure are later increments — this engine currently runs synchronously in-process with no persisted state across restarts.
+`.Step(name, fn, new WorkflowStepOptions { MaxAttempts = 3, RetryDelay = ..., Timeout = ... })` wraps a step with retry and/or a timeout; the timeout bounds the *caller's* wait via `Task.WaitAsync` rather than requiring the step to observe a `CancellationToken`, so it also times out a step that ignores cancellation. `.Compensate(fn)` registers a saga compensation for the step most recently added, run with the value that step produced; when a later step fails, the engine runs every completed step's compensation in reverse declaration order (best-effort — a compensation's own failure doesn't change the already-failed outcome).
+
+Durable checkpoints and resume-after-failure are later increments — this engine currently runs synchronously in-process with no persisted state across restarts.
